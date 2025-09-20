@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>یادآور هوشمند</title>
+  <style>
+    body {
+      font-family: tahoma, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #eef2ff, #ffffff);
+    }
+    .container {
+      max-width: 600px;
+      margin: 2rem auto;
+      background: #fff;
+      padding: 2rem;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.6rem;
+      margin-bottom: 1rem;
+    }
+    form {
+      display: grid;
+      gap: 1rem;
+    }
+    input, button {
+      padding: 0.8rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+    }
+    button {
+      background: #4f46e5;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #4338ca;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 0.8rem;
+      margin-top: 0.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .meta {
+      font-size: 0.85rem;
+      color: #555;
+    }
+    .done {
+      color: green;
+      font-size: 0.8rem;
+      margin-right: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>یادآور هوشمند</h1>
+    <form id="reminderForm">
+      <input type="text" id="title" placeholder="موضوع" required />
+      <label>زمان رویداد:<br><input type="datetime-local" id="eventAt" required /></label>
+      <label>زمان یادآوری:<br><input type="datetime-local" id="remindAt" required /></label>
+      <button type="submit">ذخیره یادآور</button>
+    </form>
+
+    <h2 style="margin-top:2rem;font-size:1.2rem;">لیست یادآورها</h2>
+    <ul id="events"></ul>
+  </div>
+
+  <script>
+    const form = document.getElementById("reminderForm");
+    const list = document.getElementById("events");
+    let events = JSON.parse(localStorage.getItem("reminders") || "[]");
+
+    function render() {
+      list.innerHTML = "";
+      events.forEach(ev => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <div>
+            <div><strong>${ev.title}</strong></div>
+            <div class="meta">رویداد: ${new Date(ev.eventAt).toLocaleString()}</div>
+            <div class="meta">یادآوری: ${new Date(ev.remindAt).toLocaleString()}</div>
+          </div>
+          <div>
+            ${ev.fired ? '<span class="done">ارسال شد</span>' : ''}
+            <button onclick="removeEvent('${ev.id}')">حذف</button>
+          </div>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    function schedule(ev) {
+      const ms = new Date(ev.remindAt).getTime() - Date.now();
+      if (ms <= 0) return;
+      setTimeout(() => {
+        showNotification(ev);
+        ev.fired = true;
+        localStorage.setItem("reminders", JSON.stringify(events));
+        render();
+      }, ms);
+    }
+
+    function showNotification(ev) {
+      const text = `یادآوری: ${ev.title}\nزمان رویداد: ${new Date(ev.eventAt).toLocaleString()}`;
+      if ("Notification" in window) {
+        if (Notification.permission === "granted") {
+          new Notification(ev.title, { body: text });
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission().then(p => {
+            if (p === "granted") new Notification(ev.title, { body: text });
+            else alert(text);
+          });
+        } else {
+          alert(text);
+        }
+      } else {
+        alert(text);
+      }
+    }
+
+    form.addEventListener("submit", e => {
+      e.preventDefault();
+      const title = document.getElementById("title").value.trim();
+      const eventAt = document.getElementById("eventAt").value;
+      const remindAt = document.getElementById("remindAt").value;
+      if (!title || !eventAt || !remindAt) return;
+      const ev = { id: Date.now().toString(), title, eventAt, remindAt, fired: false };
+      events.push(ev);
+      localStorage.setItem("reminders", JSON.stringify(events));
+      schedule(ev);
+      render();
+      form.reset();
+    });
+
+    function removeEvent(id) {
+      events = events.filter(ev => ev.id !== id);
+      localStorage.setItem("reminders", JSON.stringify(events));
+      render();
+    }
+
+    events.forEach(schedule);
+    render();
+  </script>
+</body>
+</html>
